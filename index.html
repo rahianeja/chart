@@ -1,0 +1,505 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta http-equiv='Content-Type' content='text/html;charset=UTF-8'/>
+
+<script src="resources/sap-ui-core.js"
+				id="sap-ui-bootstrap"
+				data-sap-ui-libs="sap.ui.commons"
+				data-sap-ui-theme="sap_bluecrystal">
+		</script>
+      <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+ 
+<style>
+		
+.sapUiBody{
+    background-color: white;
+    background-image: none;
+}
+
+.grid .tick {
+	stroke: lightgrey;
+	opacity: 0.7;
+	shape-rendering: crispEdges;
+}
+ 
+.grid path {
+	stroke-width: 0;
+}
+ 
+.axis path {
+	fill: none;
+	stroke: #bbb;
+	shape-rendering: crispEdges;
+}
+ 
+.axis text {
+	fill: #555;
+}
+ 
+.axis line {	
+	stroke: #e7e7e7;
+	shape-rendering: crispEdges;
+}
+ 
+.axis .axis-label {
+	font-size: 14px;
+}
+ .yaxis-label{
+ left: 448px;
+    position: absolute;
+    display: block;
+ }
+ 
+.line {
+	fill: none;
+	stroke-width: 2.0px;
+}
+ 
+.dot {
+	/* consider the stroke-with the mouse detect radius? */
+	stroke: transparent;
+	stroke-width: 10px;  
+	cursor: pointer;
+}
+ div.tooltip {	
+    position: absolute;			
+    text-align: center;			
+    width: 60px;					
+    height: 28px;					
+    padding: 2px;				
+    font: 12px sans-serif;		
+    background: lightsteelblue;	
+    border: 0px;		
+    border-radius: 8px;			
+    pointer-events: none;			
+}
+.areaBelow {
+    fill: white;
+    stroke-width: 0;
+}
+
+.areaAbove {
+ 	fill: RGB(142,166,78);
+    stroke-width: 0;
+        opacity: 0.34;
+}
+
+.dot:hover {
+	stroke: rgba(68, 127, 255, 0.3);
+}
+ 
+</style>
+<svg width="960" height="1"></svg>
+		<script src="http://d3js.org/d3.v3.min.js"></script>
+		
+		<script>
+
+		//************************************************************
+		// Data notice the structure
+		//************************************************************
+		var data = 	[
+			[{'x':1,'y':7},{'x':2,'y':7},{'x':3,'y':7},{'x':4,'y':7},{'x':4.5,'y':8.1},{'x':6.3,'y':8.1},{'x':6.8,'y':7},{'x':8,'y':7},{'x':9,'y':8},{'x':10,'y':8}],
+			[{'x':1,'y':9},{'x':2,'y':8},{'x':3,'y':11},{'x':4,'y':10},{'x':5,'y':10},{'x':6,'y':9},{'x':7,'y':10},{'x':8,'y':10},{'x':9,'y':11},{'x':10,'y':10}],
+			[{'x':1,'y':9.5},{'x':2,'y':9},{'x':3,'y':10.5},{'x':4,'y':9},{'x':5,'y':10},{'x':6,'y':9},{'x':7,'y':11},{'x':8,'y':10},{'x':9,'y':11},{'x':10,'y':11}],
+			[{'x':1,'y':8},{'x':2,'y':8},{'x':3,'y':8},{'x':4,'y':8},{'x':5,'y':10},{'x':6,'y':10},{'x':7,'y':8},{'x':8,'y':8},{'x':9,'y':9},{'x':10,'y':9}],
+			[{'x':1,'y':10},{'x':2,'y':10},{'x':3,'y':10},{'x':4,'y':11},{'x':5,'y':11},{'x':6.5,'y':11},{'x':7,'y':10},{'x':8,'y':10},{'x':9,'y':11},{'x':10,'y':11}]
+		];
+		
+		var dataAboveLine = [{'x':1,'y':10},{'x':2,'y':10},{'x':3,'y':10},{'x':4,'y':11},{'x':5,'y':11},{'x':6.5,'y':11},{'x':7,'y':10},{'x':8,'y':10},{'x':9,'y':11},{'x':10,'y':11}];
+		var dataBelowLine = [{'x':1,'y':7},{'x':2,'y':7},{'x':3,'y':7},{'x':4,'y':7},{'x':4.5,'y':8.1},{'x':6.3,'y':8.1},{'x':6.8,'y':7},{'x':8,'y':7},{'x':9,'y':8},{'x':10,'y':8}];
+		
+		var colors = [
+			'steelblue',
+			'RGB(0,93,135)',
+			'RGB(226,0,26)',
+			'RGB(142,166,78)'
+		]
+		
+		var lineType = [
+		     '0 1', //5 0
+		     '5 0',
+		     '5 0',
+		     '8 5'
+		 ]
+		 
+	
+		//************************************************************
+		// Create Margins and Axis and hook our zoom function
+		//************************************************************
+		var margin = {top: 20, right: 30, bottom: 30, left: 50},
+		    width = 960 - margin.left - margin.right,
+		    height = 500 - margin.top - margin.bottom;
+			
+		var x = d3.scale.linear()
+		    .domain([0, 12])
+		    .range([0, width]);
+		 
+		var y = d3.scale.linear()
+		    .domain([-1, 16])
+		    .range([height, 0]);
+			
+		var xAxis = d3.svg.axis()
+		    .scale(x)
+			//.tickSize(-height)
+			.tickPadding(10)	
+			.tickSubdivide(true)	
+		    .orient("bottom");	
+			
+		var yAxis = d3.svg.axis()
+		    .scale(y)
+			.tickPadding(10)
+			.tickSize(-width)
+			.tickSubdivide(true)	
+		    .orient("left");
+			
+		var area = d3.svg.area()
+	    .x(function(d) { return x(d.x); })
+	    .y0(height)
+	    .y1(function(d) { return y(d.y); });
+		
+		
+		var zoom = d3.behavior.zoom()
+		    .x(x)
+		    .y(y)
+		    .scaleExtent([1, 10])
+		    .on("zoom", zoomed);	
+			
+		 var vertical = d3.select("body")
+	        .append("div")
+	        .attr("clip-path", "url(#clip)")
+	        .attr("class", "remove")
+	        .style("position", "absolute")
+	        .style("z-index", "19")
+	        .style("width", "1px")
+	        .style("height", "450px")
+	       // .style("top", "39px")
+	        .style("top", "46px")
+	        .style("bottom", "1px")
+	        .style("left", "8px")
+	        .style("background", "#000");
+		 
+		 var horizontal = d3.select("body")
+	        .append("div")
+	        .attr("clip-path", "url(#clip)")
+	        .attr("class", "remove")
+	        .style("position", "absolute")
+	        .style("z-index", "19")
+	        .style("width", "881px")
+	        .style("height", "1px")
+	        .style("top", "47px")
+	        .style("bottom", "1px")
+	        .style("left", "57px")
+	        .style("background", "#000");
+			
+		//************************************************************
+		// Generate our SVG object
+		//************************************************************	
+		var svg = d3.select("body").append("svg")
+			.call(zoom)
+		    .attr("width", width + margin.left + margin.right)
+		    .attr("height", height + margin.top + margin.bottom)
+		    .attr("class", "svgClass")
+			.append("g")
+		    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+		 
+		svg.append("g")
+		    .attr("class", "x axis")
+		    .attr("transform", "translate(0," + height + ")")
+		    .call(xAxis);
+		 
+		svg.append("g")
+		    .attr("class", "y axis")
+		    .call(yAxis);
+		
+// 		svg.append("g")
+// 		.attr("class", "x axis")
+// 		.append("text")
+// 		.attr("class", "axis-label")
+// 		.attr("y", 500)
+// 		.attr("x", 400)
+// 		.text('new');	
+		 
+		svg.append("g")
+			.attr("class", "y axis")
+			.append("text")
+			.attr("class", "axis-label")
+			.attr("transform", "rotate(-90)")
+			.attr("y", (-margin.left) + 10)
+			.attr("x", -height/2)
+			.text('Hours');	
+		 
+		svg.append("clipPath")
+			.attr("id", "clip")
+			.append("rect")
+			.attr("width", width)
+			.attr("height", height);
+			
+		
+		svg.append("path")
+        .datum(dataAboveLine)
+        .attr("class", "areaAbove")
+        .attr("d", area)
+        .attr("clip-path", "url(#clip)");
+		
+		
+		svg.append("path")
+        .datum(dataBelowLine)
+        .attr("class", "areaBelow")
+        .attr("d", area)
+        .attr("clip-path", "url(#clip)");
+		
+			
+		//************************************************************
+		// Create D3 line object and draw data on our SVG object
+		//************************************************************
+		var line = d3.svg.line()
+		    .interpolate("linear")	
+		    .x(function(d) { return x(d.x); })
+		    .y(function(d) { return y(d.y); });		
+			
+		svg.selectAll('.line')
+			.data(data)
+			.enter()
+			.append("path")
+		    .attr("class", "line")
+			.attr("clip-path", "url(#clip)")
+			.attr('stroke', function(d,i){ 			
+				return colors[i%colors.length];
+			})
+			.style("stroke-dasharray", function(d,i){
+				return lineType[i%lineType.length];	
+			})
+		    .attr("d", line)
+		    .attr("stroke-width","3px");		
+			
+		
+		// Define the div for the tooltip
+		var div = d3.select("body").append("div")	
+		    .attr("class", "tooltip")				
+		    .style("opacity", 0);
+			
+		//************************************************************
+		// Draw points on SVG object based on the data given
+		//************************************************************
+		var points = svg.selectAll('.dots')
+			.data(data)
+			.enter()
+			.append("g")
+		    .attr("class", "dots")
+			.attr("clip-path", "url(#clip)");	
+		 
+		points.selectAll('.dot')
+			.data(function(d, index){ 		
+				var a = [];
+				d.forEach(function(point,i){
+					a.push({'index': index, 'point': point});
+				});		
+				return a;
+			})
+			.enter()
+			.append('circle')
+			.on("click", function(d){click(d)})
+			.attr('class','dot')
+			.attr("r", 3.5)
+			.attr('fill', function(d,i){ 	
+				return colors[d.index%colors.length];
+			})	
+			.attr('fill-opacity', function(d,i){
+				if(d.index==0||d.index==4||d.index==3){
+					return '0';
+				}
+			})
+			.attr("transform", function(d) { 
+				return "translate(" + x(d.point.x) + "," + y(d.point.y) + ")"; }
+			)
+			.on("mouseover", function(d) {		
+            div.transition()		
+               // .duration(200)		
+                .style("opacity", .9);		
+            div	.html("X:"+d.point.x + "<br/>"  +"Y:"+ d.point.y)	
+                .style("left", (d3.event.pageX) + "px")		
+                .style("top", (d3.event.pageY - 28) + "px");
+            })					
+	        .on("mouseout", function(d) {		
+	            div.transition()		
+	               // .duration(500)		
+	                .style("opacity", 0);	
+	        });
+			
+		 
+			function click(d){
+				alert(JSON.stringify(d.point));
+			}
+			
+			
+			
+		//************************************************************
+		// Zoom specific updates
+		//************************************************************
+		function zoomed() {
+			svg.select(".areaAbove").call(area);
+			
+			svg.select(".x.axis").call(xAxis);
+			svg.select(".y.axis").call(yAxis);  
+			
+			svg.selectAll('path.line').attr('d', line);  
+			
+			svg.select('.areaAbove').attr('d', area);
+			svg.select('.areaBelow').attr('d', area);
+		 
+			points.selectAll('circle').attr("transform", function(d) { 
+				return "translate(" + x(d.point.x) + "," + y(d.point.y) + ")"; }
+			);  
+		}
+		var txtCycle = d3.select("body").append("p")
+		.append("text")
+		.attr("class", "yaxis-label")
+		.attr("y", 463)
+		.attr("x", 400)
+		.text('Number of cycles');
+		
+		var slider = d3.select("body").append("p").append("input")
+		  .datum({})
+		  .attr("type", "range")
+		  .attr("value", zoom.scaleExtent()[0])
+		  .attr("min", zoom.scaleExtent()[0])
+		  .attr("max", zoom.scaleExtent()[1])
+		  .attr("step", (zoom.scaleExtent()[1] - zoom.scaleExtent()[0]) / 100)
+		  .on("input", slided);
+		
+	
+
+		var svgimg = document.createElementNS('http://www.w3.org/2000/svg','image');
+		svgimg.setAttributeNS(null,'height','22');
+		svgimg.setAttributeNS(null,'width','350');
+		svgimg.setAttributeNS('http://www.w3.org/1999/xlink','href', 'xaxis.PNG');
+		svgimg.setAttributeNS(null,'x','580');
+		svgimg.setAttributeNS(null,'y','450');
+		svgimg.setAttributeNS(null, 'visibility', 'visible');
+		
+		$('svg').append(svgimg);
+		function slided(d){
+			  zoom.scale(d3.select(this).property("value"))
+			    .event(svg);
+			}
+         
+
+		
+	//for crosshairs
+		 d3.select("body")
+	      .on("mousemove", function(){  
+	         coord = d3.mouse(this);
+	         mousex = coord[0];
+	         mousey=coord[1];
+// 	         vertical.style("left", mousex+ "px" );
+// 	         horizontal.style("top", mousey +"px")
+	         if((mousex+6)>935){
+	        	 mousex=929;
+	         }
+	         if((mousex+6)<59){
+	        	 mousex=53;
+	         }
+	         if((mousey+6)>495){
+	        	 mousey=489;
+	         }
+	         if((mousey+6)<44){
+	        	 mousey=39;
+	         }
+	         vertical.style("left", mousex+6+ "px" );
+	         horizontal.style("top", mousey+6 +"px");
+	      })
+		 
+	      .on("mouseover", function(){  
+	    	  coord = d3.mouse(this);
+	         mousex = coord[0];
+	         mousey=coord[1];
+	         if((mousex+6)>930){
+	        	 mousex=924;
+	         }
+	         if((mousex+6)<51){
+	        	 mousex=45;
+	         }
+	         if((mousey+6)<39){
+	        	 mousey=33;
+	         }
+	         if((mousey+6)>487){
+	        	 mousey=481;
+	         }
+// 	         vertical.style("left", mousex + "px");
+// 	         horizontal.style("top", mousey +"px")});
+		 
+	         vertical.style("left", mousex +6+ "px");
+	         horizontal.style("top", mousey +6+"px")});
+	
+		// add cross hairs and floating value on axis
+		/*
+		var chart = d3.select("svg");
+		
+		var focusText = chart.append("g")
+		.attr("class","focus")
+		.style("display", "none");
+
+	    focusText.append("text").attr({"x": 9, "dy": "0.35em"});
+	    
+	    
+		var focus = chart.append("g")
+			.attr("class","focus")
+			.style("display", "none");
+
+		    //focus.append("text").attr({"x": 9, "dy": "0.35em"});
+		   
+		    // horizontal crosshair	
+		    focus.append("line")
+		          .attr({
+		            "x1": -width,
+		            "y1": 0,
+		            "x2": width,
+		            "y2": 0
+		          });
+
+
+		    // vertical crosshair
+		    
+		    focus.append("line")
+		            .attr({
+		              "x1": 0,
+		              "y1": -height,
+		              "x2": 0,
+		              "y2": height
+		            });
+		    
+		    
+		    chart.append("rect")
+		        .attr({"class": "overlay" , "width": width , "height": height})
+		        .on({
+		          "mouseover": function() { focus.style("display", null);   focusText.style("display", null); },
+		          "mouseout":  function() { focus.style("display", "none"); focusText.style("display", "none"); }, 
+		          "mousemove": mousemove
+		        });
+		  
+
+
+		function mousemove() {
+			var x0 = xScale.invert(d3.mouse(this)[0]),
+		        i = bisectDate(sample2, x0, 1),
+		        d0 = sample2[i-1],
+		        d1 = sample2[i],
+		        d = x0 - d0.date > d1.date - x0 ? d1 : d0;
+		  
+			focus.attr("transform", "translate(" + (d3.mouse(this)[0]) + "," + yScale(d.close) + ")");
+		    focusText.attr("transform", "translate(" + (width-margin.right) + "," + yScale(d.close) + ")");
+		    focusText.select("text").text("$" + d.close);
+
+		} */
+
+		</script> 
+
+	</head>
+	<body class="sapUiBody" role="application">
+	<div id="container"></div>
+	
+		<div id="content"></div>
+	</body>
+</html>
